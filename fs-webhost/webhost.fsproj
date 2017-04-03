@@ -10,8 +10,8 @@
     <OutputType>Library</OutputType>
     <RootNamespace>fs_webhost</RootNamespace>
     <AssemblyName>fs_webhost</AssemblyName>
-    <TargetFrameworkVersion>v4.6.1</TargetFrameworkVersion>
-    <TargetFSharpCoreVersion>4.4.0.0</TargetFSharpCoreVersion>
+    <TargetFrameworkVersion>v4.6.2</TargetFrameworkVersion>
+    <TargetFSharpCoreVersion>4.4.1.0</TargetFSharpCoreVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Name>webhost</Name>
     <TargetFrameworkProfile />
@@ -93,7 +93,6 @@
   <ItemGroup>
     <Content Include="packages.config" />
     <Content Include="web.config" />
-    <Compile Include="HomeController.fs" />
     <Content Include="Global.asax" />
     <Compile Include="Global.asax.fs" />
     <Content Include="Index.html" />
@@ -108,7 +107,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="System.Core" />
+    <Reference Include="System.Data.DataSetExtensions.dll" />
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Net.Http.Formatting">
       <HintPath>packages\Microsoft.AspNet.WebApi.Client.5.2.3\lib\net45\System.Net.Http.Formatting.dll</HintPath>
@@ -116,6 +115,10 @@
     </Reference>
     <Reference Include="System.Numerics" />
     <Reference Include="System.Web" />
+    <Reference Include="System.Web.ApplicationServices.dll" />
+    <Reference Include="System.Web.DynamicData.dll" />
+    <Reference Include="System.Web.Entity.dll" />
+    <Reference Include="System.Web.Extensions" />
     <Reference Include="System.Web.Http">
       <HintPath>packages\Microsoft.AspNet.WebApi.Core.5.2.3\lib\net45\System.Web.Http.dll</HintPath>
       <Private>True</Private>
@@ -124,6 +127,14 @@
       <HintPath>packages\Microsoft.AspNet.WebApi.WebHost.5.2.3\lib\net45\System.Web.Http.WebHost.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="System.Xml.Linq.dll" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\LiveTrackerApi\LiveTrackerApi.fsproj">
+      <Name>LiveTrackerApi</Name>
+      <Project>{b37b727f-3644-476d-9b9c-38aa95d2c2cb}</Project>
+      <Private>True</Private>
+    </ProjectReference>
   </ItemGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

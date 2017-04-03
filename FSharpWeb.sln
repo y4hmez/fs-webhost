@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26228.12
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "webhost", "webhost.fsproj", "{4D7871CB-DC1E-4350-833C-FE8CC8F82EFB}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "webhost", "fs-webhost\webhost.fsproj", "{4D7871CB-DC1E-4350-833C-FE8CC8F82EFB}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "LiveTrackerApi", "..\LiveTrackerApi\LiveTrackerApi.fsproj", "{B37B727F-3644-476D-9B9C-38AA95D2C2CB}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "LiveTrackerApi", "LiveTrackerApi\LiveTrackerApi.fsproj", "{B37B727F-3644-476D-9B9C-38AA95D2C2CB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
