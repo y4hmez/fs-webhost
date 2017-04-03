@@ -1,0 +1,16 @@
+C:\Develop\fs-webhost\fs-webhost\bin\Debug\fs_webhost.XML
+C:\Develop\fs-webhost\fs-webhost\bin\fs_webhost.dll
+C:\Develop\fs-webhost\fs-webhost\bin\fs_webhost.pdb
+C:\Develop\fs-webhost\fs-webhost\bin\fs_webhost.XML
+C:\Develop\fs-webhost\fs-webhost\bin\FSharp.Core.dll
+C:\Develop\fs-webhost\fs-webhost\bin\Newtonsoft.Json.dll
+C:\Develop\fs-webhost\fs-webhost\bin\System.Net.Http.Formatting.dll
+C:\Develop\fs-webhost\fs-webhost\bin\System.Web.Http.dll
+C:\Develop\fs-webhost\fs-webhost\bin\System.Web.Http.WebHost.dll
+C:\Develop\fs-webhost\fs-webhost\bin\FSharp.Core.xml
+C:\Develop\fs-webhost\fs-webhost\bin\Newtonsoft.Json.xml
+C:\Develop\fs-webhost\fs-webhost\bin\System.Net.Http.Formatting.xml
+C:\Develop\fs-webhost\fs-webhost\bin\System.Web.Http.xml
+C:\Develop\fs-webhost\fs-webhost\bin\System.Web.Http.WebHost.xml
+C:\Develop\fs-webhost\fs-webhost\obj\Debug\fs_webhost.dll
+C:\Develop\fs-webhost\fs-webhost\obj\Debug\fs_webhost.pdb
