@@ -7,8 +7,6 @@ open System.Web.Http.Dispatcher
 open System.Web.Http.Controllers
 //open LiveTracker.Reservations
 
-
-
 type Agent<'T> = MailboxProcessor<'T>
 
 type CompositionRoot() =
@@ -43,7 +41,6 @@ type CompositionRoot() =
                 raise 
                 <| ArgumentException(
                     sprintf "Unknown controller type requested: %O" controllerType, "Controller Type")
-
 
 let ConfigureServices (config : HttpConfiguration) = 
     config.Services.Replace(
