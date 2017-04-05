@@ -4,7 +4,16 @@ open System
 open System.Net
 open System.Net.Http
 open System.Web.Http
+//open System.Reactive.Subjects
+open System.Reactive.Linq
+open System.Reactive
+//open FSharp.Reactive
+//open FSharp.Reactive.Observable
+open FSharp.Control
+open FSharp.Control.Reactive
+open FSharp.Control.Reactive.Observable
 open System.Reactive.Subjects
+
 
 type HomeController() =
     inherit ApiController()
@@ -22,7 +31,8 @@ type HomeController() =
 
 type ReservationsController() =
     inherit ApiController()
-    let subject = new Subject<Envelope<ReservationCmd>>()
+    //let subject = new Subject<Envelope<ReservationCmd>>()
+    let subject = new Subject<Envelope<ReservationCmd>>() 
     member this.Post (rendition : MakeReservationDto) =
         let (cmdMkRsvrtn : Envelope<ReservationCmd>) = 
             {
