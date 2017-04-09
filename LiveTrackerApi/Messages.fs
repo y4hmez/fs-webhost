@@ -18,6 +18,13 @@ type ReservationEvt =  {
     Quantity : int
 }
 
+[<CLIMutable>]
+type NotificationEvt =  {
+    About : Guid
+    Type : string
+    Message : string 
+}
+
 [<AutoOpen>]
 module Envelope = 
     [<CLIMutable>]

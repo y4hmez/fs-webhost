@@ -19,7 +19,7 @@ type CompositionRoot(reservations : IReservations, reservationRequestObserver) =
             elif controllerType = typeof<ReservationsController> then
                 let c = new ReservationsController()                 
                 c
-                |> Observable.subscribeObserver reservationRequestObserver
+                |> Observable.subscribeObserver reservationRequestObserver //at the controller implements IObservable - here were subcribing the observer to lit.
                 |> request.RegisterForDispose
                 c :> IHttpController
             else 
