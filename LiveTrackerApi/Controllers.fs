@@ -44,9 +44,43 @@ type ReservationsController() =
             |> WrapWithDefaults
         subject.OnNext cmdMkRsvrtn
         
-        new HttpResponseMessage(HttpStatusCode.Accepted);
+        //new HttpResponseMessage(HttpStatusCode.Accepted);
+        this.Request.CreateResponse (
+            HttpStatusCode.Accepted, {
+                Links =
+                    [| {
+                        Rel = "http://localhost:64741/notifications"
+                        Href = "http://localhost:64741/notifications/" + cmdMkRsvrtn.Id.ToString "N" } |] })
+
+
     interface IObservable<Envelope<ReservationCmd>> with 
         member this.Subscribe observer = subject.Subscribe observer
     override this.Dispose disposing =
         if disposing then subject.Dispose()
         base.Dispose disposing
+
+
+type NotificationsController (notifications : Notifications.INotifications) =
+    inherit ApiController()
+
+    member this.Notifications = notifications
+
+    member this.Get id = 
+        let toDto (n : Envelope<NotificationEvt>) =  {
+            About = n.Item.About.ToString()
+            Type = n.Item.Type
+            Message = n.Item.Message
+        }
+        let matches = 
+            notifications
+            |> Notifications.About id
+            |> Seq.map toDto
+            |> Seq.toArray
+
+        this.Request.CreateResponse(
+            HttpStatusCode.OK,
+            { Notifications = matches }
+        )
+
+
+

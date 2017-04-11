@@ -10,7 +10,7 @@ open FSharp.Control.Reactive
 //FSharp.Reactive
 open LiveTracker.Reservations
 
-type CompositionRoot(reservations : IReservations, reservationRequestObserver) =
+type CompositionRoot(reservations : IReservations, notifications,  reservationRequestObserver) =
             
     interface IHttpControllerActivator with 
         member this.Create(request, controllerDescriptor, controllerType) =
@@ -22,6 +22,8 @@ type CompositionRoot(reservations : IReservations, reservationRequestObserver) =
                 |> Observable.subscribeObserver reservationRequestObserver //at the controller implements IObservable - here were subcribing the observer to lit.
                 |> request.RegisterForDispose
                 c :> IHttpController
+            elif controllerType = typeof<NotificationsController> then
+                new NotificationsController(notifications) :> IHttpController
             else 
                 raise 
                 <| ArgumentException(
@@ -30,9 +32,9 @@ type CompositionRoot(reservations : IReservations, reservationRequestObserver) =
 
 type HttpRouteDefaults = { Controller : string; Id : obj }  
 
-let ConfigureServices reservations reservationRequestObserver (config : HttpConfiguration) = 
+let ConfigureServices reservations notifications reservationRequestObserver (config : HttpConfiguration) = 
     config.Services.Replace(
-        typeof<IHttpControllerActivator>,CompositionRoot(reservations, reservationRequestObserver)
+        typeof<IHttpControllerActivator>,CompositionRoot(reservations, notifications, reservationRequestObserver)
     )
     
 let ConfigureRoutes (config : HttpConfiguration) =
@@ -47,8 +49,9 @@ let ConfigureFormatting (config : HttpConfiguration) =
     
 let  Configure 
         reservations
+        notifications
         reservationRequestObserver 
         config = 
     ConfigureRoutes config
-    ConfigureServices  reservations reservationRequestObserver config
+    ConfigureServices  reservations notifications reservationRequestObserver config
     ConfigureFormatting config

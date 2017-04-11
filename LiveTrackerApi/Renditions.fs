@@ -12,3 +12,25 @@ type MakeReservationDto = {
     Quantity : int 
 }
 
+[<CLIMutable>]
+type NotificationDto = {
+    About : string
+    Type : string
+    Message : string
+}
+
+[<CLIMutable>]
+type NottificationListDto = {
+    Notifications : NotificationDto array
+}
+
+[<CLIMutable>]
+type AtomLinkToNotification = {
+    Rel : string
+    Href : string
+}
+
+[<CLIMutable>]
+type NotificationLinkList = {
+    Links : AtomLinkToNotification array 
+}

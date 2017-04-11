@@ -4,7 +4,7 @@ open System
 open System.Collections.Concurrent
 open System.Web.Http
 open LiveTracker
-//open LiveTracker.Infrastructure
+open LiveTracker.Infrastructure
 open LiveTracker.Reservations
 open System.Reactive
 //open FSharp.Reactive
@@ -25,9 +25,12 @@ type Global() =
             let reservationSubject = new Subjects.Subject<Envelope<ReservationEvt>>()
             reservationSubject.Subscribe reservations.Add |> ignore
 
+            
+            //let notifications = ConcurrentBag<NotificationEvt>()
             let notifications = ConcurrentBag<Envelope<NotificationEvt>>()
             let notificationSubject = new Subjects.Subject<NotificationEvt>()
-            notificationSubject
+            
+            notificationSubject            
             |> Observable.map WrapWithDefaults
             |> Observable.subscribeWithCallbacks notifications.Add ignore ignore
             |> ignore
@@ -60,7 +63,11 @@ type Global() =
             do agent.Start()
             let reservationRequestObserver = Observer.Create agent.Post //create the observer that will post the requests (booking request cmds) to the agent
 
-            LiveTracker.Infrastructure.Configure (reservations |> ToReservations )  reservationRequestObserver GlobalConfiguration.Configuration            
+            LiveTracker.Infrastructure.Configure 
+                (reservations |> ToReservations )
+                (notifications |> Notifications.ToNotification)
+                reservationRequestObserver 
+                GlobalConfiguration.Configuration            
             
             
 
