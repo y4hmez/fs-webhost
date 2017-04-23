@@ -10,7 +10,7 @@ open FSharp.Control.Reactive
 //FSharp.Reactive
 open LiveTracker.Reservations
 
-type CompositionRoot(reservations : IReservations, notifications,  reservationRequestObserver) =
+type CompositionRoot(reservations : IReservations, notifications,  reservationRequestObserver, seatingCapacity) =
             
     interface IHttpControllerActivator with 
         member this.Create(request, controllerDescriptor, controllerType) =
@@ -24,6 +24,8 @@ type CompositionRoot(reservations : IReservations, notifications,  reservationRe
                 c :> IHttpController
             elif controllerType = typeof<NotificationsController> then
                 new NotificationsController(notifications) :> IHttpController
+            elif controllerType = typeof<AvailablityController> then
+                new AvailablityController(seatingCapacity) :> IHttpController
             else 
                 raise 
                 <| ArgumentException(
@@ -32,9 +34,9 @@ type CompositionRoot(reservations : IReservations, notifications,  reservationRe
 
 type HttpRouteDefaults = { Controller : string; Id : obj }  
 
-let ConfigureServices reservations notifications reservationRequestObserver (config : HttpConfiguration) = 
+let ConfigureServices reservations notifications reservationRequestObserver seatingCapacity (config : HttpConfiguration) = 
     config.Services.Replace(
-        typeof<IHttpControllerActivator>,CompositionRoot(reservations, notifications, reservationRequestObserver)
+        typeof<IHttpControllerActivator>,CompositionRoot(reservations, notifications, reservationRequestObserver, seatingCapacity)
     )
     
 let ConfigureRoutes (config : HttpConfiguration) =
@@ -50,8 +52,9 @@ let ConfigureFormatting (config : HttpConfiguration) =
 let  Configure 
         reservations
         notifications
-        reservationRequestObserver 
+        reservationRequestObserver
+        seatingCapacity
         config = 
     ConfigureRoutes config
-    ConfigureServices  reservations notifications reservationRequestObserver config
+    ConfigureServices  reservations notifications reservationRequestObserver seatingCapacity config
     ConfigureFormatting config

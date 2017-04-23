@@ -27,8 +27,6 @@ type HomeController() =
 /// Wraps in Envelop
 /// Publishes
 ///
-
-
 type ReservationsController() =
     inherit ApiController()
     //let subject = new Subject<Envelope<ReservationCmd>>()
@@ -59,7 +57,6 @@ type ReservationsController() =
         if disposing then subject.Dispose()
         base.Dispose disposing
 
-
 type NotificationsController (notifications : Notifications.INotifications) =
     inherit ApiController()
 
@@ -81,6 +78,28 @@ type NotificationsController (notifications : Notifications.INotifications) =
             HttpStatusCode.OK,
             { Notifications = matches }
         )
+
+type AvailablityController(seatingCapacity : int) = 
+    inherit ApiController()
+    member this.Get year =
+        let openings =
+            Dates.In(Year(year))
+            |> Seq.map (fun d -> 
+            {
+                Date = d.ToString "yyyy.MM.dd"
+                Seats = seatingCapacity
+            })
+            |> Seq.toArray
+
+        this.Request.CreateResponse(
+            HttpStatusCode.OK,
+            { Openings = openings })
+
+    member this.SeatingCapacity = seatingCapacity
+
+
+
+
 
 
 

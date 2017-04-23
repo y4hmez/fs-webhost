@@ -66,7 +66,8 @@ type Global() =
             LiveTracker.Infrastructure.Configure 
                 (reservations |> ToReservations )
                 (notifications |> Notifications.ToNotification)
-                reservationRequestObserver 
+                reservationRequestObserver
+                seatingCapacity
                 GlobalConfiguration.Configuration            
             
             

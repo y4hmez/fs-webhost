@@ -34,3 +34,14 @@ type AtomLinkToNotification = {
 type NotificationLinkList = {
     Links : AtomLinkToNotification array 
 }
+
+[<CLIMutable>]
+type OpeningsDto = {
+    Date : string
+    Seats : int 
+}
+
+[<CLIMutable>]
+type AvailabilityDto = {
+    Openings : OpeningsDto array    
+}
