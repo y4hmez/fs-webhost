@@ -6,11 +6,13 @@ open System.Web.Http
 open LiveTracker
 open LiveTracker.Infrastructure
 open LiveTracker.Reservations
+open LiveTracker.Notifications
 open System.Reactive
 //open FSharp.Reactive
 open FSharp.Control.Reactive
 open FSharp.Control.Reactive.Observable
-
+open System.IO
+open Newtonsoft.Json
 
 type Agent<'T> = MailboxProcessor<'T>
 
@@ -20,27 +22,25 @@ type Global() =
     inherit Web.HttpApplication()
     member this.Application_Start (sender :obj) (e : EventArgs) = 
             let seatingCapacity = 10
-
-            let reservations = ConcurrentBag<Envelope<ReservationEvt>>()                        
-            let reservationSubject = new Subjects.Subject<Envelope<ReservationEvt>>()
-            reservationSubject.Subscribe reservations.Add |> ignore
-
+                        
+            let reservations = ReservationsInFiles(DirectoryInfo(Web.HttpContext.Current.Server.MapPath("~/ReservationStore")))            
+            let notifications = NotificationsInFiles(DirectoryInfo(Web.HttpContext.Current.Server.MapPath("~/NotificationStore")))
             
-            //let notifications = ConcurrentBag<NotificationEvt>()
-            let notifications = ConcurrentBag<Envelope<NotificationEvt>>()
+            let reservationSubject = new Subjects.Subject<Envelope<ReservationEvt>>()
+            reservationSubject.Subscribe reservations.Write |> ignore
+                        
             let notificationSubject = new Subjects.Subject<NotificationEvt>()
             
             notificationSubject            
             |> Observable.map WrapWithDefaults
-            |> Observable.subscribeWithCallbacks notifications.Add ignore ignore
+            |> Observable.subscribeWithCallbacks notifications.Write ignore ignore
             |> ignore
             
             let agent = new Agent<Envelope<ReservationCmd>>(fun inbox ->
                 let rec loop () =
                     async {
-                        let! cmd = inbox.Receive()
-                        let rs = reservations |> Reservations.ToReservations
-                        let handle = Reservations.Handle seatingCapacity rs
+                        let! cmd = inbox.Receive()                        
+                        let handle = Reservations.Handle seatingCapacity reservations
                         let newReservations = handle cmd
                         match newReservations with
                         | Some(r) -> 
@@ -64,8 +64,8 @@ type Global() =
             let reservationRequestObserver = Observer.Create agent.Post //create the observer that will post the requests (booking request cmds) to the agent
 
             LiveTracker.Infrastructure.Configure 
-                (reservations |> ToReservations )
-                (notifications |> Notifications.ToNotification)
+                reservations 
+                notifications
                 reservationRequestObserver
                 seatingCapacity
                 GlobalConfiguration.Configuration            

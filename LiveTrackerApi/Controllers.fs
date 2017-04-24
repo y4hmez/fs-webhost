@@ -84,14 +84,14 @@ type AvailablityController(reservations : Reservations.IReservations, seatingCap
 
     let getAvailableSeats map (now : DateTimeOffset) date = 
         if date < now.Date then 0
-        elif map |> Map.containsKey date.Date then
+        elif map |> Map.containsKey date then
             seatingCapacity - (map |> Map.find date)
         else seatingCapacity
 
     let toMapOfDatesAndQuantities (min, max) reservations =
         reservations
         |> Reservations.Between min max
-        |> Seq.groupBy(fun r -> r.Item.Date.Date) 
+        |> Seq.groupBy(fun r -> r.Item.Date) 
         |> Seq.map (fun (d, rs) -> 
             (d, rs |> Seq.sumBy(fun r -> r.Item.Quantity)))
         |> Map.ofSeq

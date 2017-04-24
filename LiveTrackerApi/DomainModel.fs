@@ -30,23 +30,63 @@ module Dates =
 
 
 module Reservations = 
+    open System.IO
+    open Newtonsoft.Json
 
     type IReservations = 
         inherit seq<Envelope<ReservationEvt>>
         abstract Between : DateTime -> DateTime -> seq<Envelope<ReservationEvt>>
+    
+    type ReservationsInFiles(directory : DirectoryInfo) =
+        let toReservation (f : FileInfo) =
+            let json = File.ReadAllText f.FullName
+            JsonConvert.DeserializeObject<Envelope<ReservationEvt>>(json)
+        let toEnumerator (s : seq<'T>) = s.GetEnumerator();
+        let getContainingDirectory (d : DateTime) = 
+            Path.Combine(
+                directory.FullName,
+                d.Year.ToString(),
+                d.Month.ToString(),
+                d.Day.ToString())
+        let appendPath p2 p1 = Path.Combine(p1,p2)
+        let getJsonFiles (dir : DirectoryInfo) = 
+            if Directory.Exists (dir.FullName) then
+                dir.EnumerateFiles("*.json",SearchOption.AllDirectories)
+            else
+                Seq.empty<FileInfo>
 
-    type ReservationsInMemory(reservations) = 
-        interface IReservations with 
-            member this.Between min max = 
-                reservations 
-                |> Seq.filter (fun r -> min  <= r.Item.Date && r.Item.Date <= max)
+        member this.Write (reservation : Envelope<ReservationEvt>) =
+            let withExtension extension path = Path.ChangeExtension(path, extension)
+            let directoryName = reservation.Item.Date |> getContainingDirectory
+            let fileName =
+                directoryName
+                |> appendPath (reservation.Id.ToString())
+                |> withExtension "json"
+
+            let json = JsonConvert.SerializeObject reservation
+            Directory.CreateDirectory directoryName |> ignore
+            File.WriteAllText(fileName, json)
+
+        member this.Add (reservation : Envelope<ReservationEvt>) =
+            this.Write reservation
+
+        interface IReservations with
+            member this.Between min max =
+                Dates.InitInfinite min
+                |> Seq.takeWhile (fun d -> d <= max)
+                |> Seq.map getContainingDirectory
+                |> Seq.collect (fun dir -> DirectoryInfo(dir) |> getJsonFiles)
+                |> Seq.map toReservation
+
             member this.GetEnumerator() =
-                reservations.GetEnumerator()
+                directory
+                |> getJsonFiles
+                |> Seq.map toReservation
+                |> toEnumerator
+
             member this.GetEnumerator() =
                 (this :> seq<Envelope<ReservationEvt>>).GetEnumerator() :> System.Collections.IEnumerator
-
-    let ToReservations reservations = ReservationsInMemory(reservations)
-
+    
     let Between min max (reservations : IReservations) = 
         reservations.Between min max
 
@@ -75,21 +115,55 @@ module Reservations =
 
 //[<AutoOpen>]
 module Notifications =
+    open System.IO
+    open Newtonsoft.Json
 
     type INotifications = 
         inherit seq<Envelope<NotificationEvt>>
         abstract  About : Guid -> seq<Envelope<NotificationEvt>>
+                 
+    type NotificationsInFiles(directory : DirectoryInfo) =
+        let toNotification (f : FileInfo) =
+            let json = File.ReadAllText f.FullName
+            JsonConvert.DeserializeObject<Envelope<NotificationEvt>>(json)
 
-    type NotificationsInMemory(notifications : Envelope<NotificationEvt> seq) =
-        interface INotifications with 
-            member this.About id = 
-                notifications |> Seq.filter (fun n -> n.Item.About = id)
-            member this.GetEnumerator() = notifications.GetEnumerator()
+        let toEnumerator (s : seq<'T>) = s.GetEnumerator();
+
+        let getContainingDirectory id = Path.Combine(directory.FullName, id.ToString())
+    
+        let appendPath p2 p1 = Path.Combine(p1,p2)
+
+        let getJsonFiles (dir : DirectoryInfo) = 
+            if Directory.Exists (dir.FullName) then
+                dir.EnumerateFiles("*.json",SearchOption.AllDirectories)
+            else
+                Seq.empty<FileInfo>
+
+        member this.Write (notification : Envelope<NotificationEvt>) =
+            let withExtension extension path = Path.ChangeExtension(path, extension)
+            let directoryName = notification.Item.About |> getContainingDirectory
+            let fileName =
+                directoryName
+                |> appendPath (notification.Id.ToString())
+                |> withExtension "json"
+
+            let json = JsonConvert.SerializeObject notification
+            Directory.CreateDirectory directoryName |> ignore
+            File.WriteAllText(fileName, json)
+    
+        interface INotifications with
+            member this.About id =
+                id
+                |> getContainingDirectory
+                |> (fun dir -> DirectoryInfo(dir))
+                |> getJsonFiles
+                |> Seq.map toNotification
             member this.GetEnumerator() =
-                (this :> Envelope<NotificationEvt> seq).GetEnumerator() :> System.Collections.IEnumerator
-
-    let ToNotification notifications = NotificationsInMemory(notifications) 
+                directory
+                |> getJsonFiles
+                |> Seq.map toNotification
+                |> toEnumerator
+            member this.GetEnumerator() =
+                (this :> seq<Envelope<NotificationEvt>>).GetEnumerator() :> System.Collections.IEnumerator
 
     let About id (notifications : INotifications) = notifications.About id
-
-         
