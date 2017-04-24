@@ -16,7 +16,7 @@ module Dates =
             dt |> InitInfinite |> Seq.takeWhile predicate
         match period with
         | Year(y) -> generate (DateTime(y,1,1)) (fun d -> d.Year = y)
-        | Month(y,m) -> generate (DateTime(y,m,1)) (fun d -> d.Year = y && d.Month = d.Month)
+        | Month(y,m) -> generate (DateTime(y,m,1)) (fun d -> d.Year = y && d.Month = d.Month) 
         | Day(y,m,d) -> DateTime(y,m,d) |> Seq.singleton
 
     let BoundariesIn period =

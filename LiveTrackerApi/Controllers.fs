@@ -79,21 +79,62 @@ type NotificationsController (notifications : Notifications.INotifications) =
             { Notifications = matches }
         )
 
-type AvailablityController(seatingCapacity : int) = 
+type AvailablityController(reservations : Reservations.IReservations, seatingCapacity : int) = 
     inherit ApiController()
+
+    let getAvailableSeats map (now : DateTimeOffset) date = 
+        if date < now.Date then 0
+        elif map |> Map.containsKey date.Date then
+            seatingCapacity - (map |> Map.find date)
+        else seatingCapacity
+
+    let toMapOfDatesAndQuantities (min, max) reservations =
+        reservations
+        |> Reservations.Between min max
+        |> Seq.groupBy(fun r -> r.Item.Date.Date) 
+        |> Seq.map (fun (d, rs) -> 
+            (d, rs |> Seq.sumBy(fun r -> r.Item.Quantity)))
+        |> Map.ofSeq
+
+    let toOpening ((d : DateTime), seats) =
+        { Date = d.ToString "yyyy.MM.dd"; Seats = seats }
+
+    let getOpeningsIn period =
+        let boundaries = Dates.BoundariesIn period
+        let map = reservations |> toMapOfDatesAndQuantities boundaries
+        let getAvailable  = getAvailableSeats map DateTimeOffset.Now
+        
+        let now = DateTimeOffset.Now        
+        Dates.In period
+        |> Seq.map (fun d -> (d, getAvailable d))
+        |> Seq.map toOpening
+        |> Seq.toArray
+                            
     member this.Get year =
-        let openings =
-            Dates.In(Year(year))
-            |> Seq.map (fun d -> 
-            {
-                Date = d.ToString "yyyy.MM.dd"
-                Seats = seatingCapacity
-            })
-            |> Seq.toArray
+
+        let openings = getOpeningsIn(Year(year))
 
         this.Request.CreateResponse(
             HttpStatusCode.OK,
             { Openings = openings })
+
+    member this.Get(year, month) = 
+
+        let openings = getOpeningsIn(Month(year, month))
+            
+        this.Request.CreateResponse(
+            HttpStatusCode.OK,
+            { Openings = openings })
+
+    member this.Get(year, month, day) = 
+
+        let openings = getOpeningsIn(Day(year, month, day))
+        
+        this.Request.CreateResponse(
+            HttpStatusCode.OK,
+            { Openings = openings })
+        
+        
 
     member this.SeatingCapacity = seatingCapacity
 

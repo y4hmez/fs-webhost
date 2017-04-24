@@ -25,7 +25,7 @@ type CompositionRoot(reservations : IReservations, notifications,  reservationRe
             elif controllerType = typeof<NotificationsController> then
                 new NotificationsController(notifications) :> IHttpController
             elif controllerType = typeof<AvailablityController> then
-                new AvailablityController(seatingCapacity) :> IHttpController
+                new AvailablityController(reservations, seatingCapacity) :> IHttpController
             else 
                 raise 
                 <| ArgumentException(
@@ -40,6 +40,21 @@ let ConfigureServices reservations notifications reservationRequestObserver seat
     )
     
 let ConfigureRoutes (config : HttpConfiguration) =
+    config.Routes.MapHttpRoute(
+        "AvailabilityYear",
+        "availability/{year}",
+        { Controller = "Availability"; Id = RouteParameter.Optional }) |> ignore        
+
+    config.Routes.MapHttpRoute(
+            "AvailabilityMonth",
+            "availability/{year}/{month}",
+            { Controller = "Availability"; Id = RouteParameter.Optional }) |> ignore        
+
+    config.Routes.MapHttpRoute(
+            "AvailabilityDay",
+            "availability/{year}/{month}/{day}",
+            { Controller = "Availablity"; Id = RouteParameter.Optional }) |> ignore        
+
     config.Routes.MapHttpRoute(
             "DefaultAPI",
             "{controller}/{id}",
