@@ -57,7 +57,7 @@ type ReservationsController() =
         if disposing then subject.Dispose()
         base.Dispose disposing
 
-type NotificationsController (notifications : Notifications.INotifications) =
+type NotificationsController (notifications : INotifications) =
     inherit ApiController()
 
     member this.Notifications = notifications
@@ -69,8 +69,7 @@ type NotificationsController (notifications : Notifications.INotifications) =
             Message = n.Item.Message
         }
         let matches = 
-            notifications
-            |> Notifications.About id
+            notifications.About id            
             |> Seq.map toDto
             |> Seq.toArray
 

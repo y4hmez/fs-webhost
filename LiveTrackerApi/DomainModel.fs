@@ -32,61 +32,20 @@ module Dates =
 module Reservations = 
     open System.IO
     open Newtonsoft.Json
+    open Microsoft.WindowsAzure.Storage.Blob
+    open Microsoft.WindowsAzure.Storage
+    open Microsoft.Azure
 
     type IReservations = 
         inherit seq<Envelope<ReservationEvt>>
         abstract Between : DateTime -> DateTime -> seq<Envelope<ReservationEvt>>
-    
-    type ReservationsInFiles(directory : DirectoryInfo) =
-        let toReservation (f : FileInfo) =
-            let json = File.ReadAllText f.FullName
-            JsonConvert.DeserializeObject<Envelope<ReservationEvt>>(json)
-        let toEnumerator (s : seq<'T>) = s.GetEnumerator();
-        let getContainingDirectory (d : DateTime) = 
-            Path.Combine(
-                directory.FullName,
-                d.Year.ToString(),
-                d.Month.ToString(),
-                d.Day.ToString())
-        let appendPath p2 p1 = Path.Combine(p1,p2)
-        let getJsonFiles (dir : DirectoryInfo) = 
-            if Directory.Exists (dir.FullName) then
-                dir.EnumerateFiles("*.json",SearchOption.AllDirectories)
-            else
-                Seq.empty<FileInfo>
 
-        member this.Write (reservation : Envelope<ReservationEvt>) =
-            let withExtension extension path = Path.ChangeExtension(path, extension)
-            let directoryName = reservation.Item.Date |> getContainingDirectory
-            let fileName =
-                directoryName
-                |> appendPath (reservation.Id.ToString())
-                |> withExtension "json"
-
-            let json = JsonConvert.SerializeObject reservation
-            Directory.CreateDirectory directoryName |> ignore
-            File.WriteAllText(fileName, json)
-
-        member this.Add (reservation : Envelope<ReservationEvt>) =
-            this.Write reservation
-
-        interface IReservations with
-            member this.Between min max =
-                Dates.InitInfinite min
-                |> Seq.takeWhile (fun d -> d <= max)
-                |> Seq.map getContainingDirectory
-                |> Seq.collect (fun dir -> DirectoryInfo(dir) |> getJsonFiles)
-                |> Seq.map toReservation
-
-            member this.GetEnumerator() =
-                directory
-                |> getJsonFiles
-                |> Seq.map toReservation
-                |> toEnumerator
-
-            member this.GetEnumerator() =
-                (this :> seq<Envelope<ReservationEvt>>).GetEnumerator() :> System.Collections.IEnumerator
-    
+    [<CLIMutable>]
+    type StoredReservatinons = {
+        Reservations : Envelope<ReservationEvt>  array
+        AcceptedCommandIds : Guid array 
+    }
+          
     let Between min max (reservations : IReservations) = 
         reservations.Between min max
 
@@ -112,58 +71,110 @@ module Reservations =
             |> WrapWithDefaults
             |> Some
 
+    type ResevervationsInAzureBlobs(blobContainer : CloudBlobContainer) =
+        let toReservation (b : CloudBlockBlob) =
+            let json = b.DownloadText()
+            let sr = JsonConvert.DeserializeObject<StoredReservatinons> json
+            sr.Reservations
+        let toEnumerator (s : seq<'T>) = s.GetEnumerator()
+        let getId (d : DateTime) =
+            String.Join(
+                "/",
+                [
+                    d.Year.ToString()
+                    d.Month.ToString()
+                    d.Day.ToString()
+                ]) |> sprintf "%s.json"
 
-//[<AutoOpen>]
+        member this.GetAccessCondition date =
+            let id = date |> getId
+            let b = blobContainer.GetBlockBlobReference id
+            try 
+                b.FetchAttributes()
+                b.Properties.ETag |> AccessCondition.GenerateIfMatchCondition
+            with
+            | :? StorageException as e when e.RequestInformation.HttpStatusCode = 404 ->
+                AccessCondition.GenerateIfNoneMatchCondition "*"
+
+        member this.Write (reservation : Envelope<ReservationEvt>, commandId, condition) = 
+            let id = reservation.Item.Date |> getId
+            let b = blobContainer.GetBlockBlobReference id
+            let inStore =
+                try
+                    let jsonInStore = b.DownloadText(accessCondition = condition)
+                    JsonConvert.DeserializeObject<StoredReservatinons> jsonInStore
+                with 
+                | :? StorageException as e when e.RequestInformation.HttpStatusCode = 404 -> { Reservations = [||]; AcceptedCommandIds = [||] }
+
+            let updated = {
+                Reservations = Array.append [| reservation |] inStore.Reservations
+                AcceptedCommandIds = Array.append [| commandId |] inStore.AcceptedCommandIds
+            }
+
+            let json = JsonConvert.SerializeObject updated
+            b.Properties.ContentType <- "application/json"
+            b.UploadText(json, accessCondition = condition)
+                
+        interface IReservations with
+            member this.Between min max =
+                Dates.InitInfinite min
+                |> Seq.takeWhile (fun d -> d <= max)
+                |> Seq.map getId
+                |> Seq.map blobContainer.GetBlockBlobReference
+                |> Seq.filter (fun b -> b.Exists())
+                |> Seq.collect toReservation
+
+            member this.GetEnumerator() =
+                blobContainer.ListBlobs()
+                |> Seq.cast<CloudBlockBlob>
+                |> Seq.collect toReservation
+                |> toEnumerator
+
+            member this.GetEnumerator() = 
+                (this :> seq<Envelope<ReservationEvt>>).GetEnumerator() :> System.Collections.IEnumerator
+
+
+
+
+
+[<AutoOpen>]
 module Notifications =
     open System.IO
     open Newtonsoft.Json
+    open Microsoft.WindowsAzure.Storage.Blob
+    open Microsoft.WindowsAzure.Storage
+    open Microsoft.Azure
+
 
     type INotifications = 
         inherit seq<Envelope<NotificationEvt>>
         abstract  About : Guid -> seq<Envelope<NotificationEvt>>
-                 
-    type NotificationsInFiles(directory : DirectoryInfo) =
-        let toNotification (f : FileInfo) =
-            let json = File.ReadAllText f.FullName
-            JsonConvert.DeserializeObject<Envelope<NotificationEvt>>(json)
 
-        let toEnumerator (s : seq<'T>) = s.GetEnumerator();
+    type NotificationsInAzureBlobs(blobContainer : CloudBlobContainer) =
+        let toNotification (b : CloudBlockBlob) =
+            let json = b.DownloadText()
+            JsonConvert.DeserializeObject<Envelope<NotificationEvt>> json
+        
+        let toEnumerator (s : seq<'T>) = s.GetEnumerator()
 
-        let getContainingDirectory id = Path.Combine(directory.FullName, id.ToString())
-    
-        let appendPath p2 p1 = Path.Combine(p1,p2)
-
-        let getJsonFiles (dir : DirectoryInfo) = 
-            if Directory.Exists (dir.FullName) then
-                dir.EnumerateFiles("*.json",SearchOption.AllDirectories)
-            else
-                Seq.empty<FileInfo>
-
-        member this.Write (notification : Envelope<NotificationEvt>) =
-            let withExtension extension path = Path.ChangeExtension(path, extension)
-            let directoryName = notification.Item.About |> getContainingDirectory
-            let fileName =
-                directoryName
-                |> appendPath (notification.Id.ToString())
-                |> withExtension "json"
-
+        member this.Write notification =
+            let id = sprintf "%O/%O.json" notification.Item.About notification.Id
+            let b = blobContainer.GetBlockBlobReference id
             let json = JsonConvert.SerializeObject notification
-            Directory.CreateDirectory directoryName |> ignore
-            File.WriteAllText(fileName, json)
-    
+            b.Properties.ContentType <- "application/json"
+            b.UploadText json
+
         interface INotifications with
             member this.About id =
-                id
-                |> getContainingDirectory
-                |> (fun dir -> DirectoryInfo(dir))
-                |> getJsonFiles
+                blobContainer.ListBlobs(id.ToString(), true)
+                |> Seq.cast<CloudBlockBlob>
                 |> Seq.map toNotification
-            member this.GetEnumerator() =
-                directory
-                |> getJsonFiles
+
+            member this.GetEnumerator() = 
+                blobContainer.ListBlobs(useFlatBlobListing = true)
+                |> Seq.cast<CloudBlockBlob>
                 |> Seq.map toNotification
                 |> toEnumerator
-            member this.GetEnumerator() =
-                (this :> seq<Envelope<NotificationEvt>>).GetEnumerator() :> System.Collections.IEnumerator
 
-    let About id (notifications : INotifications) = notifications.About id
+            member this.GetEnumerator() = (this :> seq<Envelope<NotificationEvt>>).GetEnumerator() :> System.Collections.IEnumerator
+                 

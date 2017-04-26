@@ -13,38 +13,72 @@ open FSharp.Control.Reactive
 open FSharp.Control.Reactive.Observable
 open System.IO
 open Newtonsoft.Json
+open Microsoft.WindowsAzure.Storage.Blob
+open Microsoft.WindowsAzure.Storage
+open Microsoft.Azure
 
 type Agent<'T> = MailboxProcessor<'T>
 
 type HttpRouteDefaults = { Controller : string; Id : obj }  
+
+
+module AzureQ = 
+    let enqueue (q: Queue.CloudQueue) msg = 
+        let json = JsonConvert.SerializeObject msg
+        Queue.CloudQueueMessage(json) |> q.AddMessage
+
+    let dequeue (q : Queue.CloudQueue) =
+        match q.GetMessage() with
+        | null -> None
+        | msg -> Some(msg)
 
 type Global() =
     inherit Web.HttpApplication()
     member this.Application_Start (sender :obj) (e : EventArgs) = 
             let seatingCapacity = 10
                         
-            let reservations = ReservationsInFiles(DirectoryInfo(Web.HttpContext.Current.Server.MapPath("~/ReservationStore")))            
-            let notifications = NotificationsInFiles(DirectoryInfo(Web.HttpContext.Current.Server.MapPath("~/NotificationStore")))
+            //let reservations = ReservationsInFiles(DirectoryInfo(Web.HttpContext.Current.Server.MapPath("~/ReservationStore")))            
+            //let notifications = NotificationsInFiles(DirectoryInfo(Web.HttpContext.Current.Server.MapPath("~/NotificationStore")))
+
+            let storageAccount = CloudConfigurationManager.GetSetting "storageConnectionString" |> CloudStorageAccount.Parse
+
+            //reservation queue
+            let rq = storageAccount.CreateCloudQueueClient().GetQueueReference("reservations")
+            rq.CreateIfNotExists() |> ignore
+
+            //notification queue
+            let nq = storageAccount.CreateCloudQueueClient().GetQueueReference("notifications")
+            nq.CreateIfNotExists() |> ignore
             
-            let reservationSubject = new Subjects.Subject<Envelope<ReservationEvt>>()
+            //reservations
+            let reservationsContainer = storageAccount.CreateCloudBlobClient().GetContainerReference("reservations")
+            reservationsContainer.CreateIfNotExists() |> ignore                    
+            let reservations = ResevervationsInAzureBlobs(reservationsContainer)
+            
+            //notifications
+            let notificationsContainer = storageAccount.CreateCloudBlobClient().GetContainerReference("notifications")
+            notificationsContainer.CreateIfNotExists() |> ignore
+            let notifications = NotificationsInAzureBlobs(notificationsContainer)
+            
+            let reservationSubject = new Subjects.Subject<Envelope<ReservationEvt> * Guid * AccessCondition>()
             reservationSubject.Subscribe reservations.Write |> ignore
                         
             let notificationSubject = new Subjects.Subject<NotificationEvt>()
             
-            notificationSubject            
+            notificationSubject   
             |> Observable.map WrapWithDefaults
-            |> Observable.subscribeWithCallbacks notifications.Write ignore ignore
+            |> Observable.subscribeWithCallbacks (AzureQ.enqueue nq) ignore ignore
             |> ignore
-            
-            let agent = new Agent<Envelope<ReservationCmd>>(fun inbox ->
-                let rec loop () =
-                    async {
-                        let! cmd = inbox.Receive()                        
-                        let handle = Reservations.Handle seatingCapacity reservations
-                        let newReservations = handle cmd
-                        match newReservations with
+                                       
+            let handleR (msg : Queue.CloudQueueMessage) = 
+                let json = msg.AsString
+                let cmd = 
+                    JsonConvert.DeserializeObject<Envelope<ReservationCmd>> json
+                let condition = reservations.GetAccessCondition cmd.Item.Date
+                let newReservations = Handle seatingCapacity reservations cmd
+                match newReservations with
                         | Some(r) -> 
-                            reservationSubject.OnNext r //this is thing that actually adds the reservation - if it has it to the collection of reservation evts.
+                            reservationSubject.OnNext(r, cmd.Id, condition)
                             notificationSubject.OnNext 
                                 {
                                     About = cmd.Id
@@ -58,19 +92,31 @@ type Global() =
                                         Type = "Failure"
                                         Message = sprintf "didnt work %s " (cmd.Item.Date.ToString "yyyy.MM.dd")
                                     }
-                        return! loop() }
-                loop())
-            do agent.Start()
-            let reservationRequestObserver = Observer.Create agent.Post //create the observer that will post the requests (booking request cmds) to the agent
+                rq.DeleteMessage msg
 
+            let handleN (msg : Queue.CloudQueueMessage) = 
+                            let json = msg.AsString
+                            let notification = JsonConvert.DeserializeObject<Envelope<NotificationEvt>> json
+                            notifications.Write notification                
+                            nq.DeleteMessage msg
+           
+            System.Reactive.Linq.Observable.Interval(TimeSpan.FromSeconds 10.0)
+            |> Observable.map (fun _ -> AzureQ.dequeue rq)
+            |> Observable.choose id
+            |> Observable.subscribeObserver (Observer.Create handleR)
+            |> ignore
+
+            System.Reactive.Linq.Observable.Interval(TimeSpan.FromSeconds 10.0)
+            |> Observable.map (fun _ -> AzureQ.dequeue nq)
+            |> Observable.choose id
+            |> Observable.subscribeObserver (Observer.Create handleN)
+            |> ignore
+            
             LiveTracker.Infrastructure.Configure 
                 reservations 
                 notifications
-                reservationRequestObserver
+                (Observer.Create (AzureQ.enqueue rq))
                 seatingCapacity
                 GlobalConfiguration.Configuration            
             
-            
-
-
-
+     
